@@ -1,0 +1,106 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  passwordHash  String
+  firstName     String?
+  lastName      String?
+  role          Role      @default(ADMIN)
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  createdCategories Category[]
+  sentSMS           SMSLog[]
+  activityLogs      ActivityLog[]
+
+  @@map("users")
+}
+
+enum Role {
+  SUPERADMIN
+  ADMIN
+}
+
+model Category {
+  id        String    @id @default(cuid())
+  name      String    @unique
+  createdBy String
+  user      User      @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  // Relations
+  contacts  Contact[]
+  smsLogs   SMSLog[]
+
+  @@map("categories")
+}
+
+model Contact {
+  id         String    @id @default(cuid())
+  phoneNumber String
+  categoryId  String
+  category    Category  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  // Relations
+  smsLogs    SMSLog[]
+
+  @@unique([phoneNumber, categoryId])
+  @@map("contacts")
+}
+
+model SMSLog {
+  id         String    @id @default(cuid())
+  sentBy     String
+  user       User      @relation(fields: [sentBy], references: [id], onDelete: Cascade)
+  recipient  String
+  contact    Contact   @relation(fields: [recipient], references: [id], onDelete: Cascade)
+  message    String
+  status     SMSStatus @default(PENDING)
+  categoryId String?
+  category   Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  twilioSid  String?   @unique
+  sentAt     DateTime  @default(now())
+  deliveredAt DateTime?
+  failedAt   DateTime?
+  errorMessage String?
+  updatedAt  DateTime  @updatedAt
+
+  @@map("sms_logs")
+}
+
+enum SMSStatus {
+  PENDING
+  SENT
+  DELIVERED
+  FAILED
+  BOUNCED
+}
+
+model ActivityLog {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  action    String
+  details   String?
+  ipAddress String?
+  userAgent String?
+  timestamp DateTime  @default(now())
+
+  @@map("activity_logs")
+}
